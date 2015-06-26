@@ -237,9 +237,11 @@ private class Sector: NSObject{
     private func drawTextInArc(iSector: Sector) {
         var title : String = iSector.title!
         var titleFont = textFont
+        
         if iSector.isPrioritySector {
             titleFont = textFont.fontWithSize(textFont.pointSize - 6)
         }
+        
         // Creating attributes for the title with font and text color
         let textAttributes : [NSObject:AnyObject] = [NSFontAttributeName : titleFont, NSForegroundColorAttributeName : iSector.textColor!]
         let alphaCount = count(title)
@@ -248,9 +250,11 @@ private class Sector: NSObject{
         var titleSize = title.sizeWithAttributes(textAttributes)
         
         var textRadius = titleRadius * 2
+        
         if iSector.isPrioritySector {
             textRadius = (prioritySectorRadius - textFont.pointSize * 0.25) * 2
         }
+        
         // Calculating the lenght of the arc with the radius of the text. So that it is used for terminating the text.
         var sectorArcLength = textRadius * (iSector.sectorEndAngle - iSector.sectorStartAngle)
         
@@ -321,7 +325,6 @@ private class Sector: NSObject{
         imageLayer.frame = bounds
         imageLayer.contents = image.CGImage
         self.layer.addSublayer(imageLayer)
-        
     }
     
     
@@ -331,7 +334,6 @@ private class Sector: NSObject{
         let colorLocations : [CGFloat] = [0.0, 1.0]
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         let gradient = CGGradientCreateWithColors(colorSpace, colors, colorLocations)
-        
         
         var sectorPath : UIBezierPath = UIBezierPath (arcCenter: graphCenter, radius: prioritySectorRadius, startAngle: iSector.sectorStartAngle, endAngle: iSector.sectorEndAngle, clockwise: true)
         sectorPath.addLineToPoint(graphCenter)
@@ -373,8 +375,6 @@ private class Sector: NSObject{
                 priorityStartIndex = prioritySectorDetails!.iBetweenIndex
                 priorityEndIndex = prioritySectorDetails!.iToIndex
             }
-            
-            
         }
     }
     
@@ -400,9 +400,7 @@ private class Sector: NSObject{
             } else {
                 self.delegate?.didSelectTheSector(sectorIndex.index, isPriority: sectorIndex.isPriority)
             }
-            
         }
-        
     }
     
     
