@@ -1,0 +1,168 @@
+import UIKit
+
+let barTitleFont: UIFont = UIFont.boldSystemFontOfSize(17)
+
+enum BarGraphBarType: Int {
+    case Horizontal = 0, Vertical
+}
+
+
+protocol BarGraphDataSource {
+    func numberOfBars() -> Int
+    func detailsOfBarAtIndex(iIndex: Int) -> (iTitle: String, iValue: CGFloat, iBarColor: UIColor, iTitleColor: UIColor)
+}
+
+
+protocol BarGraphDelegate{
+    func didSelectBar(iIndex: Int)
+}
+
+
+class Bar{
+    var title: String?
+    var value: CGFloat = 0
+    var barColor: UIColor?
+    var textColor: UIColor?
+    var origin: CGPoint = CGPointZero
+    var width: CGFloat = 0
+    var height: CGFloat = 0
+    var barRect: CGRect = CGRectZero
+    
+    init(iTitle: String, iValue: CGFloat, iBarColor: UIColor, iTextColor: UIColor) {
+        title = iTitle
+        value = iValue
+        barColor = iBarColor
+        textColor = iTextColor
+    }
+}
+
+
+@IBDesignable class BarGraphView: UIView {
+    
+    var dataSource: BarGraphDataSource?
+    var delegate: BarGraphDelegate?
+    
+    var graphType: BarGraphBarType = BarGraphBarType.Vertical
+    
+    private var bars: [Bar] = []
+    private var barLayers: [CAShapeLayer] = []
+    private var barWidth: CGFloat = 0
+    private var maxBarHeight: CGFloat = 0
+    private var maxValue: CGFloat = 0
+    
+    var gapBetweenBars: CGFloat = 0
+    
+    override func drawRect(rect: CGRect) {
+        loadData()
+        
+        gapBetweenBars = 20
+        
+        var dX: CGFloat = (graphType == BarGraphBarType.Horizontal) ? 0 : gapBetweenBars
+        var dY: CGFloat = (graphType == BarGraphBarType.Horizontal) ? gapBetweenBars : 0
+        var barCount: CGFloat = CGFloat(bars.count)
+        
+        barWidth = (((graphType == BarGraphBarType.Horizontal) ? bounds.height : bounds.width) - (dX + dY) * (barCount + 1)) / barCount
+        maxBarHeight = 0.95 * ((graphType == BarGraphBarType.Horizontal) ? bounds.width : bounds.height)
+        
+        var dx: CGFloat = dX
+        var dy: CGFloat = dY
+        
+        for aBar in bars {
+            var barHeight = maxBarHeight * (aBar.value / maxValue)
+            aBar.height = (graphType == BarGraphBarType.Horizontal) ? barWidth : barHeight
+            aBar.width = (graphType == BarGraphBarType.Horizontal) ? barHeight : barWidth
+            aBar.origin = CGPointMake(dx, (graphType == BarGraphBarType.Horizontal) ? dy : bounds.height)
+            var yComponent = (graphType == BarGraphBarType.Horizontal) ? 0 : aBar.height
+            aBar.barRect = CGRectMake(aBar.origin.x , aBar.origin.y - yComponent , aBar.width, aBar.height)
+            dx += (dX + ((graphType == BarGraphBarType.Horizontal) ? 0 : barWidth))
+            dy += (dY + ((graphType == BarGraphBarType.Horizontal) ? barWidth : 0))
+            drawBar(aBar)
+            drawText(aBar)
+        }
+        
+    }
+    
+    
+    func drawBar(iBar: Bar) {
+        var barPath = UIBezierPath(rect: iBar.barRect)
+        iBar.barColor?.setFill()
+        barPath.fill()
+        
+        // Create a layer with the shape path
+        var barLayer: CAShapeLayer = CAShapeLayer()
+        barLayer.path = barPath.CGPath
+        // Fill the color in the layer
+        barLayer.fillColor = UIColor.clearColor().CGColor
+        //  Add the new shapelayer to the layer array
+        barLayers.append(barLayer)
+    }
+    
+    
+    func drawText(iBar: Bar) {
+        var textlabel = UILabel(frame: iBar.barRect)
+        textlabel.text = iBar.title
+        textlabel.textColor = iBar.textColor
+        textlabel.font = barTitleFont
+        if graphType == BarGraphBarType.Horizontal {
+            textlabel.drawTextInRect(UIEdgeInsetsInsetRect(textlabel.frame, UIEdgeInsetsMake(0, 10, 0, 5)))
+        } else {
+//            textlabel.numberOfLines = count(iBar.title!)
+            var frame = textlabel.frame
+            frame.origin = CGPointMake(frame.origin.x + ((frame.width - barTitleFont.pointSize) / 2) , frame.origin.y)
+            frame.size.width = barTitleFont.pointSize
+            textlabel.frame = frame
+            textlabel.numberOfLines = 0
+            textlabel.lineBreakMode = NSLineBreakMode.ByCharWrapping
+            addSubview(textlabel)
+        }
+        
+    }
+    
+    func loadData() {
+        if dataSource != nil {
+            let numberOfBars: Int = dataSource!.numberOfBars()
+            
+            for index in 0..<numberOfBars {
+                var barDetails = dataSource!.detailsOfBarAtIndex(index)
+                var bar: Bar = Bar(iTitle: barDetails.iTitle, iValue: barDetails.iValue, iBarColor: barDetails.iBarColor, iTextColor: barDetails.iTitleColor)
+                bars.append(bar)
+                
+                maxValue = (maxValue < bar.value) ? bar.value : maxValue
+                
+            }
+        }
+    }
+
+    
+    // MARK: Touch event
+    override func touchesEnded(touches: Set<NSObject>, withEvent event: UIEvent) {
+        var touchesSet = touches as NSSet
+        var touch: UITouch = touchesSet.anyObject() as! UITouch
+        var point = touch.locationInView(self)
+        var sectorIndex = self.getCurrentSelectedBarOnTouch(point)
+        
+        if self.delegate != nil && sectorIndex >= 0 {
+            self.delegate?.didSelectBar(sectorIndex)
+        }
+    }
+    
+    
+    private func getCurrentSelectedBarOnTouch(iPoint: CGPoint) -> Int {
+        var barIndex: Int = -1
+        var transform: CGAffineTransform = CGAffineTransformIdentity;
+        var parentLayer: CALayer = self.layer
+        var aBarLayers: NSArray = barLayers as NSArray
+        
+        aBarLayers.enumerateObjectsUsingBlock { (id obj, Int index , Bool found) -> Void in
+            if obj.isKindOfClass(CAShapeLayer) {
+                var sectorLayer: CAShapeLayer = obj as! CAShapeLayer
+                
+                if CGPathContainsPoint(sectorLayer.path, &transform, iPoint, false) && barIndex == -1 {
+                    barIndex = index
+                }
+            }
+        }
+        
+        return barIndex
+    }
+}
